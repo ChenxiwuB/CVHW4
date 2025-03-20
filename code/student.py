@@ -256,7 +256,6 @@ def get_bags_of_words(image_paths, vocab, extra_credit=False):
     
     return np.array(histograms)
 
-
 def svm_classify(train_image_feats, train_labels, test_image_feats, extra_credit=False):
     '''
     This function will predict a category for every test image by performing
@@ -277,16 +276,25 @@ def svm_classify(train_image_feats, train_labels, test_image_feats, extra_credit
         for the corresponding image in test_image_feats
     '''
 
-    # TODO: Implement this function!
+    unique_labels = sorted(list(set(train_labels)))
+    classifier_params = {}
+    for label in unique_labels:
+        binary_labels = np.array([1 if lab == label else -1 for lab in train_labels])
+        svm = SVM()
+        w, b = svm.train(train_image_feats, binary_labels)
+        classifier_params[label] = (w, b)
     
-    # NOTES:
-    # - We provide for you a binary linear support vector machine (SVM) classifier 
-    #   in `model.py`; the SVM class with function train().
-    # - train() returns weights and biases; use these to score each image.
-    # - You are not allowed to edit the SVM class. The autograder will use our own version of the SVM class.
-    # - If you wish to implement more complex classifiers, use the extra_credit parameter.
+    num_test = test_image_feats.shape[0]
+    scores = np.zeros((num_test, len(unique_labels)))
+    
+    for i, label in enumerate(unique_labels):
+        w, b = classifier_params[label]
+        scores[:, i] = test_image_feats.dot(w.T).flatten() + b
 
-    return np.array([])
+    predicted_indices = np.argmax(scores, axis=1)
+    predicted_labels = [unique_labels[i] for i in predicted_indices]
+
+    return np.array(predicted_labels)
 
 def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats, extra_credit=False):
     '''
