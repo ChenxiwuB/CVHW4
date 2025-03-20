@@ -6,6 +6,8 @@ from skimage.transform import resize
 from skimage.color import rgb2gray
 from scipy.spatial.distance import cdist
 from scipy.stats import mode
+from skimage.feature import hog
+from sklearn.cluster import MiniBatchKMeans
 
 '''
 READ FIRST: Relationship Between Functions
@@ -161,15 +163,37 @@ def build_vocabulary(image_paths, vocab_size, extra_credit=False):
     If you then use the flag `--load_vocab` on launch, it will load the vocab instead
     of recreating it. Hey presto!
     '''
-
-    #TODO: Implement this function!
     
-    num_imgs = len(image_paths)
-    
-    for i in tqdm(range(num_imgs), desc="Building Vocab"):
-        pass
+    all_descriptors = []
+    orientations = 9
+    pixels_per_cell = (8, 8)
+    cells_per_block = (2, 2)
+    block_descriptor_size = cells_per_block[0] * cells_per_block[1] * orientations
 
-    return np.array([])
+    for path in tqdm(image_paths, desc="Building Vocab"):
+        image = imread(path)
+        if image.ndim == 3:
+            image = rgb2gray(image)
+        hog_features = hog(image,
+                           orientations=orientations,
+                           pixels_per_cell=pixels_per_cell,
+                           cells_per_block=cells_per_block,
+                           feature_vector=True)
+        if hog_features.size % block_descriptor_size != 0:
+            num_blocks = hog_features.size // block_descriptor_size
+            hog_features = hog_features[:num_blocks * block_descriptor_size]
+        else:
+            num_blocks = hog_features.size // block_descriptor_size
+        descriptors = hog_features.reshape(-1, block_descriptor_size)
+        all_descriptors.append(descriptors)
+    
+    all_descriptors = np.vstack(all_descriptors)
+    kmeans = MiniBatchKMeans(n_clusters=vocab_size, random_state=42,
+                             max_iter=100, batch_size=1000)
+    kmeans.fit(all_descriptors)
+    vocab = kmeans.cluster_centers_
+    
+    return vocab
 
 def get_bags_of_words(image_paths, vocab, extra_credit=False):
     '''
@@ -201,9 +225,37 @@ def get_bags_of_words(image_paths, vocab, extra_credit=False):
                          np.linalg.norm, skimage.feature.hog
     '''
 
-    #TODO: Implement this function!
+    vocab_size = vocab.shape[0]
+    histograms = []
+    orientations = 9
+    pixels_per_cell = (8, 8)
+    cells_per_block = (2, 2)
+    block_descriptor_size = cells_per_block[0] * cells_per_block[1] * orientations
 
-    return np.array([])
+    for path in tqdm(image_paths, desc="Building Bags of Words"):
+        image = imread(path)
+        if image.ndim == 3:
+            image = rgb2gray(image)
+        hog_features = hog(image,
+                           orientations=orientations,
+                           pixels_per_cell=pixels_per_cell,
+                           cells_per_block=cells_per_block,
+                           feature_vector=True)
+        if hog_features.size % block_descriptor_size != 0:
+            num_blocks = hog_features.size // block_descriptor_size
+            hog_features = hog_features[:num_blocks * block_descriptor_size]
+        else:
+            num_blocks = hog_features.size // block_descriptor_size
+        descriptors = hog_features.reshape(-1, block_descriptor_size)
+        distances = cdist(descriptors, vocab, metric='euclidean')
+        nearest_indices = np.argmin(distances, axis=1)
+        hist, _ = np.histogram(nearest_indices, bins=np.arange(vocab_size + 1))
+        if hist.sum() > 0:
+            hist = hist / hist.sum()
+        histograms.append(hist)
+    
+    return np.array(histograms)
+
 
 def svm_classify(train_image_feats, train_labels, test_image_feats, extra_credit=False):
     '''
