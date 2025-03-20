@@ -1,6 +1,11 @@
 import numpy as np
 from tqdm import tqdm
 from model import SVM
+from skimage.io import imread
+from skimage.transform import resize
+from skimage.color import rgb2gray
+from scipy.spatial.distance import cdist
+from scipy.stats import mode
 
 '''
 READ FIRST: Relationship Between Functions
@@ -69,9 +74,24 @@ def get_tiny_images(image_paths, extra_credit=False):
                          skimage.io.imread, np.reshape
     '''
 
-    #TODO: Implement this function!
+    tiny_images = []
+    target_size = (16, 16)
 
-    return np.array([])
+    for path in image_paths:
+        img = imread(path)
+        if img.ndim == 3:
+            img = rgb2gray(img)
+
+        tiny = resize(img, target_size, anti_aliasing=True)
+        tiny = tiny.flatten()
+        tiny = tiny - np.mean(tiny)
+        norm = np.linalg.norm(tiny)
+        if norm > 0:
+            tiny = tiny / norm
+
+        tiny_images.append(tiny)
+
+    return np.array(tiny_images)
 
 def build_vocabulary(image_paths, vocab_size, extra_credit=False):
     '''
@@ -249,13 +269,17 @@ def nearest_neighbor_classify(train_image_feats, train_labels, test_image_feats,
     Useful functions:
         scipy.spatial.distance.cdist, np.argsort, scipy.stats.mode
     '''
-
-    k = 1
     
-    #TODO:
-    # 1) Find the k closest training features to each test image feature by some distance, e.g., Euclidean (L2)
-    # 2) Determine the labels of those k features
-    # 3) Pick the most common label from the k
-    # 4) Store that label in a list
+    k = 3
+    
+    distances = cdist(test_image_feats, train_image_feats, metric='euclidean')
+    predictions = []
 
-    return np.array([])
+    for i in range(test_image_feats.shape[0]):
+        sorted_indices = np.argsort(distances[i])
+        nearest_indices = sorted_indices[:k]
+        nearest_labels = [train_labels[idx] for idx in nearest_indices]
+        predicted_label = mode(nearest_labels).mode[0]
+        predictions.append(predicted_label)
+
+    return np.array(predictions)
