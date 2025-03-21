@@ -188,8 +188,14 @@ def build_vocabulary(image_paths, vocab_size, extra_credit=False):
         all_descriptors.append(descriptors)
     
     all_descriptors = np.vstack(all_descriptors)
+    
+    max_descriptors = 100
+    if all_descriptors.shape[0] > max_descriptors:
+        idx = np.random.choice(all_descriptors.shape[0], size=max_descriptors, replace=False)
+        all_descriptors = all_descriptors[idx]
+
     kmeans = MiniBatchKMeans(n_clusters=vocab_size, random_state=0,
-                             max_iter=1000, batch_size=100)
+                             max_iter=100, batch_size=100)
     kmeans.fit(all_descriptors)
     vocab = kmeans.cluster_centers_
     
